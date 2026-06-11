@@ -1,1 +1,81 @@
-# happ-routing
+# Personal Happ Routing
+
+Собственный профиль раздельной маршрутизации для [Happ](https://happ.su) (аналог RoscomVPN, но полностью под вашим контролем) + автосборка geosite.dat / geoip.dat.
+
+Логика трафика (вы в России, VPS за границей, `GlobalProxy: true`):
+
+| Категория | Куда | Что входит |
+|---|---|---|
+| **DIRECT** (мимо VPN) | напрямую | российские сервисы из [opencck iplist](https://russia.iplist.opencck.org) (Сбер, Госуслуги, налоговая, ВК, Яндекс — домены `geosite:russia-inside` + CIDR `geoip:russia-inside`), `category-ru`, `whitelist`, RU/BY подсети `geoip:direct`, Apple, Microsoft, Steam, Epic, Riot, Tarkov, Faceit, Twitch, Pinterest |
+| **PROXY** (через VPN) | туннель | YouTube, Telegram, GitHub, Google Play, twitch-ads и весь остальной интернет |
+| **BLOCK** | блок | реклама (`category-ads`), телеметрия Windows (`win-spy`) |
+
+DNS: direct-трафик → Яндекс DoH (77.88.8.8), proxy-трафик → Google DoH (8.8.8.8). Для ЛК налоговой захардкожены IP (`DnsHosts`).
+
+## Структура репозитория
+
+```
+config/routing-template.json   ← ШАБЛОН ПРОФИЛЯ — редактируйте списки здесь
+custom/domains-extra.txt       ← свои домены в DIRECT (russia-inside)
+custom/cidr-extra.txt          ← свои IP/CIDR в DIRECT (russia-inside)
+scripts/fetch_opencck.py       ← качает списки opencck → домены + CIDR
+scripts/build_routing.py       ← собирает ROUTING.JSON и happ://-ссылки
+.github/workflows/build.yml    ← автосборка (ежедневно + при каждом push)
+release/                       ← geosite.dat, geoip.dat (генерируется CI)
+HAPP/                          ← ROUTING.JSON, DEEPLINK, QR (генерируется CI)
+```
+
+Сборка geosite.dat: полный набор категорий [v2fly](https://github.com/v2fly/domain-list-community) + кастомные категории [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite) (`whitelist`, `twitch-ads`, `faceit`…) + ваша `russia-inside`. Сборка geoip.dat: [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) (`geoip:direct`) + ваша `geoip:russia-inside`. Файлы публикуются в `release/` с тегом-датой и раздаются через jsDelivr CDN (работает из РФ, ссылка пинится тегом).
+
+## Установка (один раз, ~10 минут)
+
+1. Создайте на GitHub **публичный** репозиторий (jsDelivr не работает с приватными), например `happ-routing`.
+
+2. Залейте файлы:
+   ```bash
+   cd happ-routing
+   git init -b main
+   git add .
+   git commit -m "init"
+   git remote add origin https://github.com/ВАШ_ЛОГИН/happ-routing.git
+   git push -u origin main
+   ```
+
+3. Разрешите Actions писать в репозиторий: **Settings → Actions → General → Workflow permissions → Read and write permissions → Save**.
+
+4. Запустите сборку: **Actions → Build geo-files and Happ routing → Run workflow** (push из шага 2 тоже мог её запустить). Ждите ~5 минут.
+
+5. После сборки в репозитории появятся:
+   - `HAPP/ROUTING.DEEPLINK` — ссылка `happ://routing/add/…` (ручное добавление);
+   - `HAPP/ROUTING.ONADD.DEEPLINK` — ссылка `happ://routing/onadd/…` (для подписки: добавляет и сразу активирует);
+   - `HAPP/ROUTING.QR.png` — QR-код для сканирования из Happ;
+   - `release/geosite.dat`, `release/geoip.dat` + GitHub Release с тегом-датой.
+
+## Подключение к панели 3x-ui
+
+Чтобы роутинг прилетал клиентам автоматически вместе с подпиской (как в RoscomVPN):
+
+1. Откройте `HAPP/ROUTING.ONADD.DEEPLINK` в вашем репозитории, скопируйте всю строку.
+2. В панели 3x-ui: **Настройки панели → Подписка** → поле **«Правила маршрутизации Happ»** (в англ. интерфейсе — *Global routing rules for the VPN client (Happ only)*).
+3. Вставьте ссылку, сохраните и перезапустите панель.
+4. Клиент в Happ добавляет/обновляет подписку — панель отдаёт ссылку в HTTP-заголовке `routing`, Happ устанавливает профиль и качает ваши геофайлы.
+
+Ручная установка без панели: открыть `ROUTING.DEEPLINK` на устройстве, отсканировать QR или вставить ссылку из буфера в Happ.
+
+## Как редактировать
+
+- **Перекинуть сервис между direct/proxy/block** — правьте массивы `DirectSites`, `ProxySites`, `BlockSites`, `DirectIp` и т.д. в `config/routing-template.json`. Доступны все категории v2fly (`geosite:netflix`, `geosite:openai`…), категории roscomvpn и ваша `geosite:russia-inside` / `geoip:russia-inside`.
+- **Добавить свой домен/подсеть в direct** — допишите строку в `custom/domains-extra.txt` / `custom/cidr-extra.txt`.
+- Сделайте `git push` — Actions пересоберёт всё автоматически и обновит `HAPP/` и `release/`.
+
+## Обновления
+
+- CI ежедневно тянет свежие списки opencck и базы v2fly/roscomvpn. Если что-то изменилось — новый тег, новые `.dat`, новые ссылки в `HAPP/`.
+- Профиль в Happ называется одинаково (`Personal-RU`), поэтому новая ссылка **перезаписывает** старый профиль, а свежий `LastUpdated` заставляет Happ перекачать геофайлы.
+- Чтобы клиенты получили обновлённые списки: скопируйте свежий `ROUTING.ONADD.DEEPLINK` в поле подписки 3x-ui (раз в месяц достаточно). Старые ссылки продолжают работать — теги не удаляются.
+
+## Примечания
+
+- Списки opencck агрессивные: CIDR-зоны включают диапазоны CDN (Akamai и т.п.), которыми пользуются российские банки. Это нормально для сценария «я в России»: такой трафик просто пойдёт напрямую.
+- Если у вас два сервера (РФ + зарубежный): профиль роутинга в Happ один на все подключения. С активным российским сервером конфликта нет — российский трафик всё равно идёт direct, остальное — через РФ-сервер (но YouTube и т.п. при этом не разблокируются, переключитесь на зарубежный).
+- `Name` профиля и DNS-серверы меняются в `config/routing-template.json`.
