@@ -38,7 +38,9 @@ def main() -> int:
         return 1
 
     cfg = json.loads(Path(args.template).read_text(encoding="utf-8"))
-    base = f"https://cdn.jsdelivr.net/gh/{args.repo}@{args.tag}/release"
+    # @main вместо @тега: ссылка стабильна (не меняется при сборках),
+    # jsdelivr подтягивает свежие файлы из ветки (кэш до 12 часов)
+    base = f"https://cdn.jsdelivr.net/gh/{args.repo}@main/release"
     cfg["Geositeurl"] = f"{base}/geosite.dat"
     cfg["Geoipurl"] = f"{base}/geoip.dat"
     cfg["LastUpdated"] = args.last_updated
