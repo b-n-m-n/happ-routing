@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Генерирует из сервиса opencck iplist (https://russia.iplist.opencck.org/ru):
+Генерирует из сервиса opencck iplist (https://russia.iplist.opencck.org):
   1. build/russia-inside        — список доменов в формате v2fly domain-list-community
   2. build/russia-inside.txt    — список CIDR (v4+v6) для сборки geoip.dat
 
@@ -19,7 +19,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
-DEFAULT_SOURCE = "https://russia.iplist.opencck.org/ru"
+DEFAULT_SOURCE = "https://russia.iplist.opencck.org/?format=json"
 DOMAIN_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$")
 
 
