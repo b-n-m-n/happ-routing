@@ -12,7 +12,7 @@
   "DomesticDNSIP": "77.88.8.8",
   "Geositeurl": "https://cdn.jsdelivr.net/gh/b-n-m-n/happ-routing@main/release/geosite.dat",
   "Geoipurl": "https://cdn.jsdelivr.net/gh/b-n-m-n/happ-routing@main/release/geoip.dat",
-  "LastUpdated": "1781602637",
+  "LastUpdated": "1781687732",
   "DnsHosts": {
     "lkfl2.nalog.ru": "213.24.64.175",
     "lknpd.nalog.ru": "213.24.64.181"
